@@ -1,7 +1,21 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { diabetesCase, oncologyCase, breastCancerCase } from './data';
-import { Stethoscope, Activity, ArrowLeft, Microscope } from 'lucide-react';
+import { Stethoscope, Activity, ArrowLeft, Microscope, ClipboardPlus, Settings } from 'lucide-react';
+import { Link } from 'react-router-dom';
+
+const IconMap: Record<string, any> = {
+  Activity,
+  Stethoscope,
+  Microscope,
+  ClipboardPlus
+};
+
+const ColorMap: Record<string, { bg: string, text: string, border: string }> = {
+  blue: { bg: 'bg-blue-50', text: 'text-blue-600', border: 'border-blue-100 hover:border-blue-300' },
+  rose: { bg: 'bg-rose-50', text: 'text-rose-600', border: 'border-rose-100 hover:border-rose-300' },
+  purple: { bg: 'bg-purple-50', text: 'text-purple-600', border: 'border-purple-100 hover:border-purple-300' },
+  indigo: { bg: 'bg-indigo-50', text: 'text-indigo-600', border: 'border-indigo-100 hover:border-indigo-300' },
+};
 
 const SectionHeader = ({ title }: { title: string }) => (
   <div className="flex justify-center my-4">
@@ -63,12 +77,20 @@ const QuestionBlock = ({
 };
 
 export default function App() {
-  const [selectedCaseId, setSelectedCaseId] = useState<'diabetes' | 'oncology' | 'breastCancer' | null>(null);
+  const [cases, setCases] = useState<Record<string, any> | null>(null);
+  const [selectedCaseId, setSelectedCaseId] = useState<string | null>(null);
   const [step, setStep] = useState(0);
   const [answers, setAnswers] = useState<Record<number, string[]>>({});
   const [comment, setComment] = useState("");
 
-  const handleSelectCase = (id: 'diabetes' | 'oncology' | 'breastCancer') => {
+  useEffect(() => {
+    fetch('/api/cases')
+      .then(res => res.json())
+      .then(data => setCases(data))
+      .catch(err => console.error("Failed to fetch cases:", err));
+  }, []);
+
+  const handleSelectCase = (id: string) => {
     setSelectedCaseId(id);
     setStep(0);
     setAnswers({});
@@ -113,57 +135,73 @@ export default function App() {
     });
   };
 
+  const isNextDisabled = () => {
+    if (!cases || !selectedCaseId) return false;
+    const caseData = cases[selectedCaseId];
+    if (!caseData || !caseData.questions) return false;
+
+    const q1 = caseData.questions.find((q: any) => q.node === 1) || caseData.questions[0];
+    const q2 = caseData.questions.find((q: any) => q.node === 2) || caseData.questions[1];
+    const q3 = caseData.questions.find((q: any) => q.node === 3) || caseData.questions[2];
+    const q4 = caseData.questions.find((q: any) => q.node === 4) || caseData.questions[3];
+
+    if (step === 1 && q1) return (answers[q1.id] || []).length === 0;
+    if (step === 2 && q2) return (answers[q2.id] || []).length === 0;
+    if (step === 3 && q3) return (answers[q3.id] || []).length === 0;
+    if (step === 4 && q4) return (answers[q4.id] || []).length === 0;
+    return false;
+  };
+
+  if (!cases) {
+    return (
+      <div className="min-h-screen bg-slate-900 flex items-center justify-center">
+        <div className="text-white">加载中...</div>
+      </div>
+    );
+  }
+
   const renderStepContent = () => {
     if (selectedCaseId === null) {
       return (
         <motion.div 
           initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-          className="min-h-full bg-slate-50 flex flex-col p-6"
+          className="min-h-full bg-slate-50 flex flex-col p-6 relative"
         >
+          <Link to="/admin" className="absolute top-6 right-6 text-slate-400 hover:text-blue-600 transition-colors">
+            <Settings size={24} />
+          </Link>
+          
           <div className="mt-12 mb-8 text-center">
             <h1 className="text-2xl font-black text-blue-900 mb-2">互动病例</h1>
             <p className="text-slate-500 text-sm">请选择您要查看的病例</p>
           </div>
 
           <div className="space-y-4">
-            <button 
-              onClick={() => handleSelectCase('diabetes')}
-              className="w-full bg-white p-6 rounded-2xl shadow-sm border border-blue-100 flex flex-col items-center text-center hover:shadow-md transition-all hover:border-blue-300"
-            >
-              <div className="w-16 h-16 bg-blue-50 rounded-full flex items-center justify-center mb-4 text-blue-600">
-                <Activity size={32} />
-              </div>
-              <h2 className="text-lg font-bold text-slate-800 mb-2">内分泌领域</h2>
-              <p className="text-sm text-slate-500 line-clamp-2">一例夜间难眠的痛性DPN，如何多机制协同改善疼痛，修复神经功能？</p>
-            </button>
-
-            <button 
-              onClick={() => handleSelectCase('oncology')}
-              className="w-full bg-white p-6 rounded-2xl shadow-sm border border-blue-100 flex flex-col items-center text-center hover:shadow-md transition-all hover:border-blue-300"
-            >
-              <div className="w-16 h-16 bg-rose-50 rounded-full flex items-center justify-center mb-4 text-rose-600">
-                <Stethoscope size={32} />
-              </div>
-              <h2 className="text-lg font-bold text-slate-800 mb-2">肿瘤领域</h2>
-              <p className="text-sm text-slate-500 line-clamp-2">一例IDH1突变复发难治性急性髓系白血病（R/R AML）的靶向治疗之路</p>
-            </button>
-
-            <button 
-              onClick={() => handleSelectCase('breastCancer')}
-              className="w-full bg-white p-6 rounded-2xl shadow-sm border border-blue-100 flex flex-col items-center text-center hover:shadow-md transition-all hover:border-blue-300"
-            >
-              <div className="w-16 h-16 bg-purple-50 rounded-full flex items-center justify-center mb-4 text-purple-600">
-                <Microscope size={32} />
-              </div>
-              <h2 className="text-lg font-bold text-slate-800 mb-2">乳腺癌领域</h2>
-              <p className="text-sm text-slate-500 line-clamp-2">一例HR+/HER2-晚期乳腺癌的内分泌靶向治疗破局之路</p>
-            </button>
+            {Object.entries(cases).map(([id, caseData]) => {
+              const Icon = IconMap[caseData.meta?.icon] || Activity;
+              const colors = ColorMap[caseData.meta?.color] || ColorMap.blue;
+              
+              return (
+                <button 
+                  key={id}
+                  onClick={() => handleSelectCase(id)}
+                  className={`w-full bg-white p-6 rounded-2xl shadow-sm border flex flex-col items-center text-center hover:shadow-md transition-all ${colors.border}`}
+                >
+                  <div className={`w-16 h-16 rounded-full flex items-center justify-center mb-4 ${colors.bg} ${colors.text}`}>
+                    <Icon size={32} />
+                  </div>
+                  <h2 className="text-lg font-bold text-slate-800 mb-2">{caseData.meta?.title || "未知领域"}</h2>
+                  <p className="text-sm text-slate-500 line-clamp-2">{caseData.intro?.lead}</p>
+                </button>
+              );
+            })}
           </div>
         </motion.div>
       );
     }
 
-    const caseData = selectedCaseId === 'diabetes' ? diabetesCase : selectedCaseId === 'oncology' ? oncologyCase : breastCancerCase;
+    const caseData = cases[selectedCaseId];
+    if (!caseData) return null;
 
     switch (step) {
       case 0: // Intro
@@ -172,7 +210,6 @@ export default function App() {
             initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
             className="min-h-full bg-white flex flex-col"
           >
-            {/* Back Button */}
             <button 
               onClick={handleBackToHome}
               className="absolute top-4 left-4 z-20 bg-white/80 backdrop-blur p-2 rounded-full shadow-sm text-slate-600 hover:text-blue-600 transition-colors"
@@ -180,11 +217,10 @@ export default function App() {
               <ArrowLeft size={20} />
             </button>
 
-            {/* Banner Area */}
             <div className="bg-gradient-to-b from-[#e6f4f1] to-white pt-16 pb-4 px-4 text-center relative overflow-hidden">
               <div className="absolute top-0 left-0 w-full h-full opacity-20 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] pointer-events-none" />
               <h2 className="text-3xl font-black text-[#1e88e5] mb-2 tracking-wider">
-                {selectedCaseId === 'diabetes' ? '慢病领域' : selectedCaseId === 'oncology' ? '肿瘤领域' : '乳腺癌领域'}
+                {caseData.meta?.title}
               </h2>
               <p className="text-[#00897b] font-bold text-lg mb-6 tracking-widest">临床诊疗经验在线分享</p>
               
@@ -201,7 +237,6 @@ export default function App() {
               </div>
             </div>
 
-            {/* Author Area */}
             <div className="px-6 py-8 flex-1">
               <div className="bg-[#4caf50] text-white text-sm font-bold px-3 py-1 inline-block mb-6 rounded-sm shadow-sm">
                 作者简介：
@@ -216,7 +251,7 @@ export default function App() {
               </div>
 
               <ul className="space-y-2 mb-8">
-                {caseData.intro.author.credentials.map((cred, idx) => (
+                {caseData.intro.author.credentials?.map((cred: string, idx: number) => (
                   <li key={idx} className="flex items-start gap-2 text-xs text-slate-700">
                     <div className="w-1.5 h-1.5 rounded-full bg-[#4caf50] mt-1.5 shrink-0" />
                     <span className="leading-relaxed">{cred}</span>
@@ -239,13 +274,13 @@ export default function App() {
         );
 
       case 1: // Basic Info, Exam, Diag, Q1
-        const q1 = caseData.questions[0];
+        const q1 = caseData.questions?.find((q: any) => q.node === 1) || caseData.questions?.[0];
         return (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="p-4 pb-24">
             <SectionHeader title="基础情况" />
             <ContentBox>
               <ul className="space-y-2">
-                {caseData.basicInfo.map((info, idx) => (
+                {caseData.basicInfo?.map((info: any, idx: number) => (
                   <li key={idx} className="flex items-start">
                     <span className="text-blue-600 mr-1 font-bold shrink-0">•</span>
                     <span className="font-bold text-blue-800 shrink-0">{info.label}：</span>
@@ -258,16 +293,15 @@ export default function App() {
             <SectionHeader title="检查" />
             <ContentBox>
               <div className="space-y-4">
-                {caseData.examination.map((section, idx) => (
+                {caseData.examination?.map((section: any, idx: number) => (
                   <div key={idx}>
                     <p className="font-bold text-blue-800 mb-1 flex items-center">
                       <span className="text-blue-600 mr-1">•</span> {section.category}：
                     </p>
                     <div className="pl-3 space-y-1">
-                      {section.items.map((item, i) => {
-                        // Highlight abnormal values in red
+                      {section.items?.map((item: string, i: number) => {
                         let highlightedItem = item;
-                        const redKeywords = ["150/90mmHg", "11.0mmol/L", "9.7%", "3.99mmol/L", "12.37mmol/L", "88.7ml/min.m²", "400mg/g", "减弱", "减退", "重度", "1.2×10^9/L", "65g/L", "25×10^9/L", "20%", "45%", "复发", "IDH1 R132C 突变（+）", "85.4 U/mL", "12.5 ng/mL", "ESR1 突变（+）", "多发异常放射性浓聚"];
+                        const redKeywords = ["150/90mmHg", "11.0mmol/L", "9.7%", "3.99mmol/L", "12.37mmol/L", "88.7ml/min.m²", "400mg/g", "减弱", "减退", "重度", "1.2×10^9/L", "65g/L", "25×10^9/L", "20%", "45%", "复发", "IDH1 R132C 突变（+）", "85.4 U/mL", "12.5 ng/mL", "ESR1 突变（+）", "多发异常放射性浓聚", "11.660 ng/ml", "0.05", "132g", "双肾积水", "SUVmax=9.1", "SUVmax=6.6", "PRIMARY 4分", "3+4=7分", "高度可疑恶性肿瘤"];
                         redKeywords.forEach(kw => {
                           if (highlightedItem.includes(kw)) {
                             highlightedItem = highlightedItem.replace(kw, `<span class="text-red-600 font-bold">${kw}</span>`);
@@ -286,7 +320,7 @@ export default function App() {
             <SectionHeader title="诊断" />
             <ContentBox>
               <ul className="space-y-1">
-                {caseData.diagnosis.map((diag, idx) => (
+                {caseData.diagnosis?.map((diag: string, idx: number) => (
                   <li key={idx} className="flex items-start">
                     <span className="text-blue-600 mr-2 font-bold shrink-0">•</span>
                     <span>{diag}</span>
@@ -296,96 +330,109 @@ export default function App() {
             </ContentBox>
 
             <div className="mt-8">
-              <QuestionBlock 
-                question={q1} 
-                selectedOptions={answers[q1.id] || []} 
-                onOptionToggle={(opt) => handleOptionToggle(q1.id, opt, q1.type)} 
-              />
+              {q1 && (
+                <QuestionBlock 
+                  question={q1} 
+                  selectedOptions={answers[q1.id] || []} 
+                  onOptionToggle={(opt) => handleOptionToggle(q1.id, opt, q1.type)} 
+                />
+              )}
             </div>
           </motion.div>
         );
 
       case 2: // Q1 Exp, Q2
-        const q2 = caseData.questions[1];
+        const q1ForExp = caseData.questions?.find((q: any) => q.node === 1) || caseData.questions?.[0];
+        const q2 = caseData.questions?.find((q: any) => q.node === 2) || caseData.questions?.[1];
         return (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="p-4 pb-24">
-            <SectionHeader title="解析" />
-            <ContentBox>
-              <div className="space-y-2">
-                {caseData.explanations[1].content.map((p, idx) => {
-                  const isBold = p.includes("【") || p.startsWith("①") || p.startsWith("②") || p.startsWith("③") || p.startsWith("如前所述") || p.startsWith("正确答案：");
-                  return (
-                    <p key={idx} className={`flex items-start ${isBold ? 'font-bold' : ''}`}>
-                      {p.startsWith("结合") || p.startsWith("如前所述") || p.startsWith("解析：") ? (
-                        <span className="text-blue-800 mr-1 font-bold shrink-0">•</span>
-                      ) : null}
-                      <span>{p}</span>
-                    </p>
-                  );
-                })}
-              </div>
-            </ContentBox>
+            {q1ForExp && caseData.explanations?.[q1ForExp.id] && (
+              <>
+                <SectionHeader title="解析" />
+                <ContentBox>
+                  <div className="space-y-2">
+                    {caseData.explanations[q1ForExp.id].content?.map((p: string, idx: number) => {
+                      const isBold = p.includes("【") || p.startsWith("①") || p.startsWith("②") || p.startsWith("③") || p.startsWith("如前所述") || p.startsWith("正确答案：");
+                      return (
+                        <p key={idx} className={`flex items-start ${isBold ? 'font-bold' : ''}`}>
+                          {p.startsWith("结合") || p.startsWith("如前所述") || p.startsWith("解析：") ? (
+                            <span className="text-blue-800 mr-1 font-bold shrink-0">•</span>
+                          ) : null}
+                          <span>{p}</span>
+                        </p>
+                      );
+                    })}
+                  </div>
+                </ContentBox>
+              </>
+            )}
 
             <div className="mt-8">
-              <QuestionBlock 
-                question={q2} 
-                selectedOptions={answers[q2.id] || []} 
-                onOptionToggle={(opt) => handleOptionToggle(q2.id, opt, q2.type)} 
-              />
+              {q2 && (
+                <QuestionBlock 
+                  question={q2} 
+                  selectedOptions={answers[q2.id] || []} 
+                  onOptionToggle={(opt) => handleOptionToggle(q2.id, opt, q2.type)} 
+                />
+              )}
             </div>
           </motion.div>
         );
 
       case 3: // Q2 Exp, Treatment, Follow-up, Exp, Q3
-        const q3 = caseData.questions[2];
+        const q2ForExp = caseData.questions?.find((q: any) => q.node === 2) || caseData.questions?.[1];
+        const q3 = caseData.questions?.find((q: any) => q.node === 3) || caseData.questions?.[2];
         return (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="p-4 pb-24">
-            <SectionHeader title="解析" />
-            <ContentBox>
-              <div className="space-y-3">
-                {caseData.explanations[2].content.map((p, idx) => {
-                  const isBold = p.startsWith("正确答案：");
-                  return (
-                    <p key={idx} className={`flex items-start ${isBold ? 'font-bold' : ''}`}>
-                      {p.startsWith("解析：") ? (
-                        <span className="text-blue-800 mr-1 font-bold shrink-0">•</span>
-                      ) : null}
-                      <span>{p}</span>
-                    </p>
-                  );
-                })}
-                
-                {/* Placeholder for images from screenshot (only for diabetes case) */}
-                {selectedCaseId === 'diabetes' && (
-                  <div className="mt-6 space-y-6">
-                    <div className="bg-blue-50 p-3 border-l-4 border-blue-600 text-sm font-bold text-blue-900">
-                      醛糖还原酶抑制剂--依帕司他，通过抑制多元醇通路，改善代谢紊乱
-                    </div>
-                    <div className="h-32 bg-slate-100 rounded flex items-center justify-center text-slate-400 text-xs border border-slate-200">
-                      [通路机制图表]
-                    </div>
+            {q2ForExp && caseData.explanations?.[q2ForExp.id] && (
+              <>
+                <SectionHeader title="解析" />
+                <ContentBox>
+                  <div className="space-y-3">
+                    {caseData.explanations[q2ForExp.id].content?.map((p: string, idx: number) => {
+                      const isBold = p.startsWith("正确答案：");
+                      return (
+                        <p key={idx} className={`flex items-start ${isBold ? 'font-bold' : ''}`}>
+                          {p.startsWith("解析：") ? (
+                            <span className="text-blue-800 mr-1 font-bold shrink-0">•</span>
+                          ) : null}
+                          <span>{p}</span>
+                        </p>
+                      );
+                    })}
                     
-                    <div className="bg-blue-50 p-3 border-l-4 border-blue-600 text-sm font-bold text-blue-900">
-                      依帕司他单药可长期改善DPN患者神经传导速度，改善神经病变症状
-                    </div>
-                    <div className="h-32 bg-slate-100 rounded flex items-center justify-center text-slate-400 text-xs border border-slate-200">
-                      [神经传导速度改善图表]
-                    </div>
+                    {selectedCaseId === 'diabetes' && (
+                      <div className="mt-6 space-y-6">
+                        <div className="bg-blue-50 p-3 border-l-4 border-blue-600 text-sm font-bold text-blue-900">
+                          醛糖还原酶抑制剂--依帕司他，通过抑制多元醇通路，改善代谢紊乱
+                        </div>
+                        <div className="h-32 bg-slate-100 rounded flex items-center justify-center text-slate-400 text-xs border border-slate-200">
+                          [通路机制图表]
+                        </div>
+                        
+                        <div className="bg-blue-50 p-3 border-l-4 border-blue-600 text-sm font-bold text-blue-900">
+                          依帕司他单药可长期改善DPN患者神经传导速度，改善神经病变症状
+                        </div>
+                        <div className="h-32 bg-slate-100 rounded flex items-center justify-center text-slate-400 text-xs border border-slate-200">
+                          [神经传导速度改善图表]
+                        </div>
+                      </div>
+                    )}
                   </div>
-                )}
-              </div>
-            </ContentBox>
+                </ContentBox>
+              </>
+            )}
 
             <SectionHeader title="治疗方案" />
             <ContentBox>
               <div className="space-y-3">
-                {caseData.treatmentPlan.map((plan, idx) => (
+                {caseData.treatmentPlan?.map((plan: any, idx: number) => (
                   <div key={idx}>
                     <p className="font-bold text-blue-800 flex items-center">
                       <span className="text-blue-600 mr-1">•</span> {plan.category}：
                     </p>
                     <div className="pl-3">
-                      {plan.items.map((item, i) => (
+                      {plan.items?.map((item: string, i: number) => (
                         <p key={i}>{item}</p>
                       ))}
                     </div>
@@ -397,15 +444,15 @@ export default function App() {
             <SectionHeader title="随访/复查" />
             <ContentBox>
               <div className="space-y-4">
-                {caseData.followUp.map((fu, idx) => (
+                {caseData.followUp?.map((fu: any, idx: number) => (
                   <div key={idx}>
                     <p className="font-bold text-blue-800 flex items-center mb-1">
                       <span className="text-blue-600 mr-1">•</span> {fu.title}
                     </p>
                     <div className="pl-3 space-y-1">
-                      {fu.items.map((item, i) => {
+                      {fu.items?.map((item: string, i: number) => {
                         let highlightedItem = item;
-                        const redKeywords = ["稍有好转", "减轻", "明显好转", "明显减轻", "睡眠有所改善", "睡眠明显改善", "降至 15%", "逐渐恢复", "脱离输血依赖", "<5%", "完全缓解", "部分恢复", "持续缓解", "显著改善", "明显缩小", "部分缓解（PR）", "降至 45.2 U/mL", "显著提高"];
+                        const redKeywords = ["稍有好转", "减轻", "明显好转", "明显减轻", "睡眠有所改善", "睡眠明显改善", "降至 15%", "逐渐恢复", "脱离输血依赖", "<5%", "完全缓解", "部分恢复", "持续缓解", "显著改善", "明显缩小", "部分缓解（PR）", "降至 45.2 U/mL", "显著提高", "消退", "稳定", "延缓疾病进展"];
                         redKeywords.forEach(kw => {
                           if (highlightedItem.includes(kw)) {
                             highlightedItem = highlightedItem.replace(kw, `<span class="text-red-600 font-bold">${kw}</span>`);
@@ -422,7 +469,7 @@ export default function App() {
             <SectionHeader title="治疗体会" />
             <ContentBox>
               <div className="space-y-2">
-                {caseData.experience.map((p, idx) => (
+                {caseData.experience?.map((p: string, idx: number) => (
                   <p key={idx} className="flex items-start">
                     {idx === 0 || idx === 5 || idx === 6 || selectedCaseId !== 'diabetes' ? (
                       <span className="text-blue-800 mr-1 font-bold shrink-0">•</span>
@@ -434,25 +481,28 @@ export default function App() {
             </ContentBox>
 
             <div className="mt-8">
-              <QuestionBlock 
-                question={q3} 
-                selectedOptions={answers[q3.id] || []} 
-                onOptionToggle={(opt) => handleOptionToggle(q3.id, opt, q3.type)} 
-              />
+              {q3 && (
+                <QuestionBlock 
+                  question={q3} 
+                  selectedOptions={answers[q3.id] || []} 
+                  onOptionToggle={(opt) => handleOptionToggle(q3.id, opt, q3.type)} 
+                />
+              )}
             </div>
           </motion.div>
         );
 
-      case 4: // Q4 (and Q3 Exp for oncology/breastCancer case)
-        const q4 = caseData.questions[3];
+      case 4: // Q4 (and Q3 Exp)
+        const q3ForExp = caseData.questions?.find((q: any) => q.node === 3) || caseData.questions?.[2];
+        const q4 = caseData.questions?.find((q: any) => q.node === 4) || caseData.questions?.[3];
         return (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="p-4 pb-24">
-            {caseData.explanations[3] && (
+            {q3ForExp && caseData.explanations?.[q3ForExp.id] && (
               <>
                 <SectionHeader title="解析" />
                 <ContentBox>
                   <div className="space-y-3">
-                    {caseData.explanations[3].content.map((p, idx) => {
+                    {caseData.explanations[q3ForExp.id].content?.map((p: string, idx: number) => {
                       const isBold = p.startsWith("正确答案：");
                       return (
                         <p key={idx} className={`flex items-start ${isBold ? 'font-bold' : ''}`}>
@@ -469,11 +519,13 @@ export default function App() {
             )}
 
             <div className="mt-4">
-              <QuestionBlock 
-                question={q4} 
-                selectedOptions={answers[q4.id] || []} 
-                onOptionToggle={(opt) => handleOptionToggle(q4.id, opt, q4.type)} 
-              />
+              {q4 && (
+                <QuestionBlock 
+                  question={q4} 
+                  selectedOptions={answers[q4.id] || []} 
+                  onOptionToggle={(opt) => handleOptionToggle(q4.id, opt, q4.type)} 
+                />
+              )}
             </div>
           </motion.div>
         );
@@ -515,27 +567,16 @@ export default function App() {
     }
   };
 
-  const isNextDisabled = () => {
-    if (step === 1) return (answers[1] || []).length === 0;
-    if (step === 2) return (answers[2] || []).length === 0;
-    if (step === 3) return (answers[3] || []).length === 0;
-    if (step === 4) return (answers[4] || []).length === 0;
-    return false;
-  };
-
   return (
     <div className="min-h-screen bg-slate-900 flex items-center justify-center p-0 sm:p-4 font-sans">
-      {/* iPhone 12 Pro Container: 390x844 */}
       <div className="w-full h-full sm:w-[390px] sm:h-[844px] bg-[#f8f9fa] relative overflow-hidden sm:rounded-[40px] sm:shadow-2xl sm:border-[8px] border-slate-800 flex flex-col">
         
-        {/* Scrollable Content */}
         <main className="flex-1 overflow-y-auto scroll-smooth">
           <AnimatePresence mode="wait">
             {renderStepContent()}
           </AnimatePresence>
         </main>
 
-        {/* Bottom Navigation (except for step 0 and 5, and home screen) */}
         {selectedCaseId !== null && step > 0 && step < 5 && (
           <div className="absolute bottom-0 left-0 right-0 p-4 bg-white border-t border-slate-200 flex justify-between gap-4">
             <button
@@ -554,7 +595,6 @@ export default function App() {
           </div>
         )}
         
-        {/* iOS Home Indicator */}
         <div className="absolute bottom-1.5 left-1/2 -translate-x-1/2 w-1/3 h-1 bg-slate-300 rounded-full hidden sm:block pointer-events-none" />
       </div>
     </div>
